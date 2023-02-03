@@ -1,0 +1,15 @@
+.form-group {
+  display: flex;
+  align-items: center;
+}
+
+.form-group label {
+  margin-right: 12px;
+}
+
+.form-group input {
+  padding: 8px 12px;
+  border-radius: 4px;
+  outline: none;
+  border: 1px solid #ccc;
+}
