@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import "./App.css";
 import { TelegramHelpers } from "./utils/telegram";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { HistoryPrice, HistoryPricesHelpers } from "./utils/history-prices";
+import { HistoryPrice, FxcmHelpers } from "./utils/history-prices";
 import { getRejections, writeRejectionData } from "./firebase";
 import { defaultOfferIds, offersIds } from "./mock/offers-ids";
 import Input from "./components/input";
@@ -189,7 +189,6 @@ const getLocalStorage = (key: string) => {
 };
 
 function App() {
-  // const [historyPrices, setHistoryPrices] = useState<HistoryPrice[]>(prices.map(price => ({...price, date: new Date(price.date)})));
   const [historyPrices, setHistoryPrices] = useState<HistoryPrices>({});
   const [previousData, setPreviousData] = useState<PreviousData>({});
   const [isStart, setIsStart] = useState(false);
@@ -208,10 +207,22 @@ function App() {
   >(getLocalStorage("watchlist_options") || offersIds);
   const [newOptionLabel, setNewOptionLabel] = useState("");
   const [newOptionValue, setNewOptionValue] = useState("");
+  const [loadingAccessToken, setLoadingAccessToken] = useState(false);
+
+  const fxcmHelpers = useMemo(() => {
+    const value = new FxcmHelpers();
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      value.authenticate(token).catch(error => {
+        console.log('error', error);
+        toast.error('Có lỗi xảy ra khi authenticate!');
+      })
+    }
+    return value;
+  }, []);
 
   const init = async (
     pairs: Pair[],
-    access_token: string
   ): Promise<{
     newPreviousData?: PreviousData;
     newHistoryPrices?: HistoryPrices;
@@ -222,14 +233,8 @@ function App() {
       await Promise.all(
         pairs.map(async ({ label, value }) => {
           newPreviousData[label] =
-            await HistoryPricesHelpers.getPreviousHighLowPrice({
-              symbol_id: value,
-              access_token,
-            });
-          newHistoryPrices[label] = await HistoryPricesHelpers.getInDayPrices({
-            symbol_id: value,
-            access_token,
-          });
+            await fxcmHelpers.getPreviousHighLowPrice(value);
+          newHistoryPrices[label] = await fxcmHelpers.getInDayPrices(value);
         })
       );
 
@@ -285,7 +290,6 @@ function App() {
 
     const { newPreviousData, newHistoryPrices } = await init(
       pairs,
-      accessToken
     );
 
     if (!newPreviousData || !Object.keys(newPreviousData).length) {
@@ -302,13 +306,10 @@ function App() {
         pairs.map(async ({ label, value }) => {
           const previousDataPair = previousData[label];
           const newHistoryPricesPair =
-            await HistoryPricesHelpers.getInDayPrices({
-              symbol_id: value,
-              access_token: accessToken,
-            });
+            await fxcmHelpers.getInDayPrices(value);
           if (!newHistoryPricesPair.length) {
             return toast.error(
-              "Có lỗi xảy ra khi lấy dữ liệu giá, có thể là do access_token đã hết hạn1"
+              "Có lỗi xảy ra khi lấy dữ liệu giá, có thể là do thứ 7, chủ nhật fxcm không hoạt động!"
             );
           }
           setHistoryPrices((oldValue) => ({
@@ -444,9 +445,18 @@ function App() {
     localStorage.setItem("watchlist_selected", JSON.stringify(pairs));
   };
 
-  const handleAccessTokenChange = (newToken: string) => {
+  const handleAccessTokenChange = async (newToken: string) => {
+    setLoadingAccessToken(true);
     setAccessToken(newToken);
     localStorage.setItem("accessToken", newToken);
+    try {
+      await fxcmHelpers.authenticate(newToken);
+    } catch (error) {
+      console.log('error', error);
+      toast.error('Có lỗi xảy ra khi authenticate!');
+    } finally {
+      setLoadingAccessToken(false);
+    }
   };
 
   const renderPairs = () => {
@@ -519,9 +529,10 @@ function App() {
       </div>
       <button
         className="mt-4"
+        disabled={loadingAccessToken}
         onClick={() => (isStart ? handleStop() : handleRun())}
       >
-        {isStart ? "Stop" : "Start"}
+        {loadingAccessToken? 'Loading...': (isStart ? "Stop" : "Start")}
       </button>
       {renderPairs()}
       <ToastContainer />

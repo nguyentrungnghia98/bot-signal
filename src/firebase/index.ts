@@ -3,13 +3,13 @@ import { getDatabase, ref, set, get, child } from "firebase/database";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDmnd3vuK0UvcL0_PgaNv7yMBGw3OrYzNQ",
-  authDomain: "signal-75cc1.firebaseapp.com",
-  projectId: "signal-75cc1",
-  storageBucket: "signal-75cc1.appspot.com",
-  messagingSenderId: "688491341894",
-  appId: "1:688491341894:web:3cc7d52a64ffeda4ad4247",
-  databaseURL: "https://signal-75cc1-default-rtdb.firebaseio.com/"
+  apiKey: "AIzaSyAHSBhbw55_tDL_5_FJxWvvlGfee2hRV2c",
+  authDomain: "bot-signal-2a454.firebaseapp.com",
+  projectId: "bot-signal-2a454",
+  storageBucket: "bot-signal-2a454.appspot.com",
+  messagingSenderId: "939658687269",
+  appId: "1:939658687269:web:dfad5067f4d7ae6a6660cc",
+  databaseURL: "https://bot-signal-2a454-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
 
 // Initialize Firebase
