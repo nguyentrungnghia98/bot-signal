@@ -83,15 +83,15 @@ function checkRejectionCandle(
 
 function formatDate(date: Date) {
   return (
-    ("0" + date.getDate()).slice(-2) +
+    ("0" + date.getUTCDate()).slice(-2) +
     "-" +
-    ("0" + (date.getMonth() + 1)).slice(-2) +
+    ("0" + (date.getUTCMonth() + 1)).slice(-2) +
     "-" +
-    date.getFullYear() +
+    date.getUTCFullYear() +
     " " +
-    ("0" + date.getHours()).slice(-2) +
+    ("0" + date.getUTCHours()).slice(-2) +
     ":" +
-    ("0" + date.getMinutes()).slice(-2)
+    ("0" + date.getUTCMinutes()).slice(-2)
   );
 }
 
@@ -251,10 +251,14 @@ function App() {
     const isCurrentCandleGreen = candle.open < candle.close;
 
     const utc = new Date(candle.date);
-    utc.setHours(utc.getHours() - 7);
+    const vn = new Date(utc);
+    vn.setHours(utc.getHours() + 7);
+    const est = new Date(utc);
+    est.setHours(utc.getHours() - 5);
+
     const text = `<b>${pair}</b> - Rejection ${
       isCurrentCandleGreen ? "Buy" : "Sell"
-    } Signal\n${formatDate(candle.date)} - UTC+7\n${formatDate(utc)} - UTC+0`;
+    } Signal\n${formatDate(vn)} - UTC+7 (Việt Nam)\n${formatDate(utc)} - UTC+0 (UTC)\n${formatDate(est)} - UTC-5 (EST)`;
 
     try {
       await writeRejectionData(pair, candle.date, text);
@@ -365,40 +369,39 @@ function App() {
       );
     }, 60 * 1000);
 
-    await Promise.all(
-      pairs.map(async ({ label }) => {
-        const newHistoryPricesPair = newHistoryPrices[label];
-        const newPreviousDataPair = newPreviousData[label];
-        console.log("newHistoryPricesPair", {
-          newHistoryPricesPair,
-          newPreviousDataPair,
-        });
-        for (let i = 1; i < newHistoryPricesPair.length; i++) {
-          const current = newHistoryPricesPair[i];
-          const previous = newHistoryPricesPair[i - 1];
-          const previousPrevious =
-            i - 2 >= 0 ? newHistoryPricesPair[i - 2] : undefined;
-          const previousPreviousPrevious =
-            i - 3 >= 0 ? newHistoryPricesPair[i - 3] : undefined;
-          if (
-            checkRejection(
-              newPreviousDataPair.low,
-              newPreviousDataPair.high,
-              current,
-              previous,
-              previousPrevious,
-              previousPreviousPrevious
-            )
-          ) {
-            const existNotifies = await getRejections(label);
-            console.log("existNotifies", existNotifies);
-            if (!existNotifies[current.date.toString() as any]) {
-              await sendNotify(label, current);
-            }
+    for (let pair of pairs) {
+      const {label} = pair;
+      const newHistoryPricesPair = newHistoryPrices[label];
+      const newPreviousDataPair = newPreviousData[label];
+      console.log("newHistoryPricesPair", {
+        newHistoryPricesPair,
+        newPreviousDataPair,
+      });
+      for (let i = 1; i < newHistoryPricesPair.length; i++) {
+        const current = newHistoryPricesPair[i];
+        const previous = newHistoryPricesPair[i - 1];
+        const previousPrevious =
+          i - 2 >= 0 ? newHistoryPricesPair[i - 2] : undefined;
+        const previousPreviousPrevious =
+          i - 3 >= 0 ? newHistoryPricesPair[i - 3] : undefined;
+        if (
+          checkRejection(
+            newPreviousDataPair.low,
+            newPreviousDataPair.high,
+            current,
+            previous,
+            previousPrevious,
+            previousPreviousPrevious
+          )
+        ) {
+          const existNotifies = await getRejections(label);
+          console.log("existNotifies", existNotifies);
+          if (!existNotifies[current.date.toString() as any]) {
+            await sendNotify(label, current);
           }
         }
-      })
-    );
+      }
+    }
   };
 
   const handleStop = () => {
