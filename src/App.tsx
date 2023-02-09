@@ -554,7 +554,8 @@ function App() {
           value={pairs}
           onChange={handleChangeSelect}
           labelledBy={"Select"}
-          isCreatable={true}
+          isCreatable={false}
+          filterOptions={(_, filter) => options.filter(({label}) => label.toLocaleLowerCase().includes(filter.toLocaleLowerCase()))}
         />
         <div className="mt-4">
           <div>Thêm vào danh sách</div>
