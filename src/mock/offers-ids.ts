@@ -64,12 +64,12 @@ export const offersIds = [
   { label: "Bund", value: 3001 },
   { label: "XAU/USD", value: 4001 },
   { label: "XAG/USD", value: 4002 },
-  { label: "XAU/EUR", value: 4005 },
-  { label: "XAU/AUD", value: 4006 },
-  { label: "XAU/TRY", value: 4007 },
+  // { label: "XAU/EUR", value: 4005 },
+  // { label: "XAU/AUD", value: 4006 },
+  // { label: "XAU/TRY", value: 4007 },
   { label: "BTC/USD", value: 8001 },
   { label: "ETH/USD", value: 8003 },
-  { label: "LTC/USD", value: 8004 },
+  // { label: "LTC/USD", value: 8004 },
 ];
 
 export const defaultOfferIds = [

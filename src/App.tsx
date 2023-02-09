@@ -239,9 +239,14 @@ function App() {
     try {
       await Promise.all(
         pairs.map(async ({ label, value }) => {
-          newPreviousData[label] =
-            await fxcmHelpers.getPreviousHighLowPrice(value);
-          newHistoryPrices[label] = await fxcmHelpers.getInDayPrices(value);
+          try {
+            newPreviousData[label] =
+              await fxcmHelpers.getPreviousHighLowPrice(value);
+            newHistoryPrices[label] = await fxcmHelpers.getInDayPrices(value);
+          } catch (error) {
+            console.log('error', error);
+            toast.error(`Có lỗi xảy ra khi lấy dữ liệu ${label}. Lý do: chưa subscribe ở fxcm hoặc giá trị value bị sai!`)
+          }
         })
       );
 
@@ -309,8 +314,14 @@ function App() {
 
     intervalRef.current = setInterval(async () => {
       console.log("Query prices");
+      const validPairs = pairs.filter(({label}) => {
+        if (!previousData[label]) {
+          console.log(`Skip ${label}`);
+        }
+        return previousData[label];
+      });
       await Promise.all(
-        pairs.map(async ({ label, value }) => {
+        validPairs.map(async ({ label, value }) => {
           const previousDataPair = previousData[label];
           const newHistoryPricesPair =
             await fxcmHelpers.getInDayPrices(value);
@@ -381,6 +392,9 @@ function App() {
       const {label} = pair;
       const newHistoryPricesPair = newHistoryPrices[label];
       const newPreviousDataPair = newPreviousData[label];
+      if (!newHistoryPrices || !newPreviousDataPair) {
+        continue;
+      }
       console.log("newHistoryPricesPair", {
         newHistoryPricesPair,
         newPreviousDataPair,
@@ -445,11 +459,30 @@ function App() {
     setPairs(newPairs);
     localStorage.setItem("watchlist_selected", JSON.stringify(newPairs));
     localStorage.setItem("watchlist_options", JSON.stringify(newOptions));
+
+    handleStop();
+  };
+
+  const handleRemoveOption = (selected: any) => {
+    const newOptions = options.filter((option) => option.label !== selected.label);
+    const newPairs = pairs.filter((pair) => pair.label !== selected.label);
+    setOptions(newOptions);
+    setPairs(newPairs);
+    localStorage.setItem("watchlist_selected", JSON.stringify(newPairs));
+    localStorage.setItem("watchlist_options", JSON.stringify(newOptions));
+
+    handleStop();
   };
 
   const handleChangeSelect = (pairs: Pair[]) => {
-    setPairs(pairs);
-    localStorage.setItem("watchlist_selected", JSON.stringify(pairs));
+    const newPairs = options.filter(option => {
+      const findExist = pairs.find(pair => pair.value === option.value);
+      return findExist;
+    });
+    setPairs(newPairs);
+    localStorage.setItem("watchlist_selected", JSON.stringify(newPairs));
+
+    handleStop();
   };
 
   const handleAccessTokenChange = async (newToken: string) => {
@@ -466,6 +499,7 @@ function App() {
     } finally {
       setLoadingAccessToken(false);
     }
+    handleStop();
   };
 
   const renderPairs = () => {
@@ -510,11 +544,17 @@ function App() {
         <div>Danh sách theo dõi</div>
         <MultiSelect
           className="mt-4"
-          options={options}
+          options={options.map(option => ({
+            label: <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center'}}>
+              <div>{option.label}</div>
+              <button style={{marginLeft: 'auto'}} onClick={() => handleRemoveOption(option)}>Xoá</button>
+            </div>,
+            value: option.value
+          })) as any}
           value={pairs}
           onChange={handleChangeSelect}
           labelledBy={"Select"}
-          isCreatable={false}
+          isCreatable={true}
         />
         <div className="mt-4">
           <div>Thêm vào danh sách</div>
