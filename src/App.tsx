@@ -208,15 +208,22 @@ function App() {
   const [newOptionLabel, setNewOptionLabel] = useState("");
   const [newOptionValue, setNewOptionValue] = useState("");
   const [loadingAccessToken, setLoadingAccessToken] = useState(false);
+  const [isValidAccessToken, setIsValidAccessToken] = useState(false);
 
   const fxcmHelpers = useMemo(() => {
     const value = new FxcmHelpers();
     const token = localStorage.getItem('accessToken');
     if (token) {
-      value.authenticate(token).catch(error => {
+      setLoadingAccessToken(true);
+      value.authenticate(token).then(() => {
+        setLoadingAccessToken(false);
+        setIsValidAccessToken(true);
+      }).catch(error => {
         console.log('error', error);
         toast.error('Có lỗi xảy ra khi authenticate!');
-      })
+        setLoadingAccessToken(false);
+        setIsValidAccessToken(false);
+      });
     }
     return value;
   }, []);
@@ -451,8 +458,10 @@ function App() {
     localStorage.setItem("accessToken", newToken);
     try {
       await fxcmHelpers.authenticate(newToken);
+      setIsValidAccessToken(true);
     } catch (error) {
       console.log('error', error);
+      setIsValidAccessToken(false);
       toast.error('Có lỗi xảy ra khi authenticate!');
     } finally {
       setLoadingAccessToken(false);
@@ -529,7 +538,7 @@ function App() {
       </div>
       <button
         className="mt-4"
-        disabled={loadingAccessToken}
+        disabled={loadingAccessToken || !isValidAccessToken}
         onClick={() => (isStart ? handleStop() : handleRun())}
       >
         {loadingAccessToken? 'Loading...': (isStart ? "Stop" : "Start")}
