@@ -57,12 +57,23 @@ export interface ExistRejections {
   };
 }
 
-function formatPairName(pair: string) {
+export function formatPairName(pair: string) {
   return pair.split('/').join('-');
 }
 
 export async function getRejections(pair: string): Promise<ExistRejections> {
   const snapshot = await get(child(dbRef, `rejections/${formatPairName(pair)}`));
+  if (snapshot.exists()) {
+    return snapshot.val();
+  } else {
+    return {};
+  }
+}
+
+export async function getAllRejections(): Promise<{
+  [pair: string]: ExistRejections
+}> {
+  const snapshot = await get(child(dbRef, `rejections`));
   if (snapshot.exists()) {
     return snapshot.val();
   } else {

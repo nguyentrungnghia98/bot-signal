@@ -4,7 +4,7 @@ import { TelegramHelpers } from "./utils/telegram";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { HistoryPrice, FxcmHelpers } from "./utils/history-prices";
-import { cleanOldData, ExistRejections, getRejections, writeRejectionData, writeRejectionPair } from "./firebase";
+import { cleanOldData, ExistRejections, formatPairName, getAllRejections, getRejections, writeRejectionData, writeRejectionPair } from "./firebase";
 import { defaultOfferIds, offersIds } from "./mock/offers-ids";
 import Input from "./components/input";
 import { MultiSelect } from "react-multi-select-component";
@@ -364,11 +364,12 @@ function App() {
     intervalRef.current = setInterval(async () => {
       console.log("Query prices");
       const validPairs = pairs.filter(({label}) => {
-        return previousData[label];
+        return newPreviousData[label];
       });
+      const existNotifies = await getAllRejections();
       await Promise.all(
         validPairs.map(async ({ label, value }) => {
-          const previousDataPair = previousData[label];
+          const previousDataPair = newPreviousData[label];
           const newHistoryPricesPair =
             await fxcmHelpers.getInDayPrices(value);
           if (!newHistoryPricesPair.length) {
@@ -423,8 +424,8 @@ function App() {
               }
             }
 
-            const existNotifies = await getRejections(label);
-            if (checked && !existNotifies[current.date.toString() as any]) {
+            const existPairNotifies = existNotifies[formatPairName(label)];
+            if (checked && !existPairNotifies[formatDate(current.date)]) {
               await sendNotify(label, current);
             }
           }
