@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { TelegramHelpers } from "./utils/telegram";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { HistoryPrice, FxcmHelpers } from "./utils/history-prices";
-import { getRejections, writeRejectionData } from "./firebase";
+import { cleanOldData, ExistRejections, getRejections, writeRejectionData, writeRejectionPair } from "./firebase";
 import { defaultOfferIds, offersIds } from "./mock/offers-ids";
 import Input from "./components/input";
 import { MultiSelect } from "react-multi-select-component";
@@ -228,6 +228,11 @@ function App() {
     return value;
   }, []);
 
+  useEffect(() => {
+    // clean data
+    cleanOldData();
+  }, []);
+
   const init = async (
     pairs: Pair[],
   ): Promise<{
@@ -266,7 +271,7 @@ function App() {
     }
   };
 
-  const sendNotify = async (pair: string, candle: HistoryPrice) => {
+  const getSaveText = (pair: string, candle: HistoryPrice) => {
     const isCurrentCandleGreen = candle.open < candle.close;
 
     const utc = new Date(candle.date);
@@ -275,12 +280,54 @@ function App() {
     const est = new Date(utc);
     est.setHours(utc.getHours() - 5);
 
-    const text = `<b>${pair}</b> - Rejection ${
+    return `<b>${pair}</b> - Rejection ${
       isCurrentCandleGreen ? "Buy" : "Sell"
     } Signal\n${formatDate(vn)} - UTC+7 (Việt Nam)\n${formatDate(utc)} - UTC+0 (UTC)\n${formatDate(est)} - UTC-5 (EST)`;
+  };
+
+  const sendNotify = async (pair: string, candle: HistoryPrice) => {
+    const text = getSaveText(pair, candle);
 
     try {
-      await writeRejectionData(pair, candle.date, text);
+      await writeRejectionData(pair, formatDate(candle.date), text);
+      await TelegramHelpers.sendMessage({
+        botToken,
+        chatId: channelChatId,
+        text,
+      });
+    } catch (error) {
+      console.log("error", error);
+      toast.error("Gửi tin nhắn thông báo tới telegram thất bại!");
+    }
+  };
+
+  const sendNotifies = async (pair: string, candles: HistoryPrice[], existRejections: ExistRejections) => {
+    const data: {
+      [date: string]: {
+        text: string
+      }
+    } = {...existRejections};
+    let text = `<b>${pair}</b>`;
+    for (const candle of candles) {
+      const isCurrentCandleGreen = candle.open < candle.close;
+  
+      const utc = new Date(candle.date);
+      const vn = new Date(utc);
+      vn.setHours(utc.getHours() + 7);
+      const est = new Date(utc);
+      est.setHours(utc.getHours() - 5);
+  
+      text  += `\n\nRejection ${
+        isCurrentCandleGreen ? "Buy" : "Sell"
+      } Signal\n${formatDate(vn)} - UTC+7 (Việt Nam)\n${formatDate(utc)} - UTC+0 (UTC)\n${formatDate(est)} - UTC-5 (EST)`;
+
+      data[formatDate(candle.date)] = {
+        text: getSaveText(pair, candle)
+      };
+    }
+
+    try {
+      await writeRejectionPair(pair, data);
       await TelegramHelpers.sendMessage({
         botToken,
         chatId: channelChatId,
@@ -393,6 +440,8 @@ function App() {
         continue;
       }
       const existNotifies = await getRejections(label);
+
+      const rejections: HistoryPrice[] = [];
       for (let i = 1; i < newHistoryPricesPair.length; i++) {
         const current = newHistoryPricesPair[i];
         const previous = newHistoryPricesPair[i - 1];
@@ -410,10 +459,14 @@ function App() {
             previousPreviousPrevious
           )
         ) {
-          if (!existNotifies[current.date.toString() as any]) {
-            await sendNotify(label, current);
+          if (!existNotifies[formatDate(current.date)]) {
+            rejections.push(current)
           }
         }
+      }
+
+      if (rejections.length) {
+        await sendNotifies(label, rejections, existNotifies);
       }
     }
   };

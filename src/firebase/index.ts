@@ -17,23 +17,71 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 const dbRef = ref(database);
 
-export async function writeRejectionData(pair: string, date: Date, text: string) {
-  await set(ref(database, `rejections/${pair}/` + date.toString()), {
-    text
-  });
+export async function cleanOldData() {
+  const snapshot = await get(child(dbRef, `rejections`));
+  if (snapshot.exists()) {
+    const pairs = snapshot.val();
+    const newPairs: {
+      [pair: string]: ExistRejections;
+    } = {};
+    const startTime = new Date();
+    startTime.setDate(startTime.getDate() - 2);
+    Object.entries<ExistRejections>(pairs).forEach(([pair, rejections]) => {
+      const newRejections: ExistRejections = {};
+      const validRejections = Object.keys(rejections).filter((date) => {
+        const validDates = date.split('-');
+        if (validDates.length >= 2) {
+          const tmp = validDates[0];
+          validDates[0] = validDates[1];
+          validDates[1] = tmp;
+        }
+
+        return new Date(validDates.join('-')).getTime() > startTime.getTime();
+      });
+
+      validRejections.forEach(date => {
+        newRejections[date] = rejections[date];
+      });
+
+      if (Object.keys(newRejections).length) {
+        newPairs[pair] = newRejections;
+      }
+    });
+    await set(ref(database, `rejections`), newPairs);
+  }
 }
 
-export async function getRejections(pair: string): Promise<{
+export interface ExistRejections {
   [date: string]: {
     text: string;
   };
-}> {
-  const snapshot = await get(child(dbRef, `rejections/${pair}`));
+}
+
+function formatPairName(pair: string) {
+  return pair.split('/').join('-');
+}
+
+export async function getRejections(pair: string): Promise<ExistRejections> {
+  const snapshot = await get(child(dbRef, `rejections/${formatPairName(pair)}`));
   if (snapshot.exists()) {
     return snapshot.val();
   } else {
     return {};
   }
+}
+
+export async function writeRejectionData(pair: string, date: string, text: string) {
+  await set(ref(database, `rejections/${formatPairName(pair)}/` + date), {
+    text
+  });
+}
+
+export async function writeRejectionPair(pair: string, data: {
+  [date: string]: {
+    text: string
+  }
+}) {
+  await set(ref(database, `rejections/${formatPairName(pair)}`), data);
 }
 
 
