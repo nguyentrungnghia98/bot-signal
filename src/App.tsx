@@ -253,6 +253,8 @@ function App() {
       setPreviousData(newPreviousData);
       setHistoryPrices(newHistoryPrices);
 
+      console.log('a', newHistoryPrices);
+
       return {
         newPreviousData,
         newHistoryPrices,
@@ -315,9 +317,6 @@ function App() {
     intervalRef.current = setInterval(async () => {
       console.log("Query prices");
       const validPairs = pairs.filter(({label}) => {
-        if (!previousData[label]) {
-          console.log(`Skip ${label}`);
-        }
         return previousData[label];
       });
       await Promise.all(
@@ -341,12 +340,10 @@ function App() {
           const currentPrice = newHistoryPricesPair.length
             ? newHistoryPricesPair[newHistoryPricesPair.length - 1]
             : undefined;
-          console.log({ current, currentPrice });
           if (
             !currentPrice ||
             current.date.getTime() !== currentPrice.date.getTime()
           ) {
-            console.log("Check new candle");
             const previous =
               length - 2 >= 0 ? newHistoryPricesPair[length - 2] : undefined;
             const previousPrevious =
@@ -395,10 +392,7 @@ function App() {
       if (!newHistoryPrices || !newPreviousDataPair) {
         continue;
       }
-      console.log("newHistoryPricesPair", {
-        newHistoryPricesPair,
-        newPreviousDataPair,
-      });
+      const existNotifies = await getRejections(label);
       for (let i = 1; i < newHistoryPricesPair.length; i++) {
         const current = newHistoryPricesPair[i];
         const previous = newHistoryPricesPair[i - 1];
@@ -416,8 +410,6 @@ function App() {
             previousPreviousPrevious
           )
         ) {
-          const existNotifies = await getRejections(label);
-          console.log("existNotifies", existNotifies);
           if (!existNotifies[current.date.toString() as any]) {
             await sendNotify(label, current);
           }

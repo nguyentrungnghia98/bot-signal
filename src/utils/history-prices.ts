@@ -78,11 +78,11 @@ export class FxcmHelpers {
 
     const now = new Date();
     const startTime = new Date(now);
-    if (now.getHours() < 5) {
+    if (now.getUTCHours() < 22) {
       // Vẫn là phiên ngày trước
       startTime.setDate(startTime.getDate() - 1);
     }
-    startTime.setHours(5);
+    startTime.setUTCHours(22);
     startTime.setMinutes(0);
     startTime.setSeconds(0);
 
